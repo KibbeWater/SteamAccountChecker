@@ -1,17 +1,10 @@
-﻿using Newtonsoft.Json;
+﻿using NETCore.Encrypt;
+using Newtonsoft.Json;
 using SteamAccGen.JSON;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using NETCore.Encrypt;
 
 namespace SteamAccGen.Forms
 {
@@ -92,7 +85,7 @@ namespace SteamAccGen.Forms
             {
                 if (!BypassQuit)
                 {
-                    e.Cancel = true;
+                    //e.Cancel = true;
                     Console.WriteLine("Unauthorized close attempt, cancelling");
                 }
             }

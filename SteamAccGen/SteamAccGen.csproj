@@ -89,8 +89,6 @@
       <DependentUpon>Settings.cs</DependentUpon>
     </Compile>
     <Compile Include="JSON\dataJson.cs" />
-    <Compile Include="JSON\playerJObject.cs" />
-    <Compile Include="JSON\SteamResponse.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">

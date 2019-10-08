@@ -2,13 +2,7 @@
 using SteamAccGen.Forms;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SteamAccGen
@@ -62,6 +56,11 @@ namespace SteamAccGen
         }
 
         private void Settings_button_Click(object sender, EventArgs e)
+        {
+            ShowSettings();
+        }
+
+        public void ShowSettings()
         {
             Settings Form = new Settings();
             Form.Show();

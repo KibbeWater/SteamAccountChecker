@@ -9,7 +9,6 @@ using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Windows.Forms;
-using SteamIDs_Engine;
 
 namespace SteamAccGen.Forms
 {
@@ -143,15 +142,6 @@ namespace SteamAccGen.Forms
             {
                 var creds = File.ReadAllText(appDataPath + @"\data.json").Split(Convert.ToChar(","));
                 var data = JsonConvert.DeserializeObject<dataJson>(EncryptProvider.AESDecrypt(creds[2], creds[0], creds[1]));
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=" + data.key + "&steamids=");
-                request.AutomaticDecompression = DecompressionMethods.GZip;
-
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                using (Stream stream = response.GetResponseStream())
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    var html = reader.ReadToEnd();
-                }
             }
             else
             {
@@ -225,91 +215,123 @@ namespace SteamAccGen.Forms
             Console.WriteLine("[Converted] SteamID Converted: " + ID.ConvertToUInt64() + "\n");
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=" + data.key + "&steamids=" + ID.ConvertToUInt64());
             request.AutomaticDecompression = DecompressionMethods.GZip;
-            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-            using (Stream stream = response.GetResponseStream())
-            using (StreamReader reader = new StreamReader(stream))
+            try
             {
-                var html = reader.ReadToEnd();
-                var responses = JObject.Parse(html);
-                Console.WriteLine("[Steam API] Results:\n   HTML: " + html + "\n   Response: " + responses.ToString() + "\n");
-                if ((string)responses["players"][0]["CommunityBanned"].ToString() != "False")
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream stream = response.GetResponseStream())
+                using (StreamReader reader = new StreamReader(stream))
                 {
-                    Console.WriteLine("[BAN] Community banned\n   Returned: " + (string)responses["players"][0]["CommunityBanned"].ToString() + "\n");
-                    account_status.Text = "BANNED";
-                    account_status.ForeColor = Color.Red;
+                    var html = reader.ReadToEnd();
+                    var responses = JObject.Parse(html);
+                    Console.WriteLine("[Steam API] Results:\n   HTML: " + html + "\n   Response: " + responses.ToString() + "\n");
+                    try
+                    {
+                        if ((string)responses["players"][0]["CommunityBanned"].ToString() != "False")
+                        {
+                            Console.WriteLine("[BAN] Community banned\n   Returned: " + (string)responses["players"][0]["CommunityBanned"].ToString() + "\n");
+                            account_status.Text = "BANNED";
+                            account_status.ForeColor = Color.Red;
+                        }
+                        else
+                        {
+                            if (!importing)
+                            {
+                                if ((string)responses["players"][0]["VACBanned"].ToString() != "False")
+                                {
+                                    Console.WriteLine("[BAN] VAC Banned\n   Returned: " + (string)responses["players"][0]["VACBanned"].ToString() + "\n");
+                                    account_status.Text = "BANNED";
+                                    account_status.ForeColor = Color.Red;
+                                }
+                                else
+                                {
+                                    if ((string)responses["players"][0]["NumberOfGameBans"].ToString() != "0")
+                                    {
+                                        Console.WriteLine("[BAN] Game Banned\n   Returned: " + (string)responses["players"][0]["NumberOfGameBans"].ToString() + "\n");
+                                        account_status.Text = "BANNED";
+                                        account_status.ForeColor = Color.Red;
+                                    }
+                                    else
+                                    {
+                                        account_status.Text = "Unbanned";
+                                        account_status.ForeColor = Color.Green;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                var banned = false;
+                                if ((string)responses["players"][0]["VACBanned"].ToString() != "False")
+                                {
+                                    Console.WriteLine("[BAN] VAC Banned\n   Returned: " + (string)responses["players"][0]["VACBanned"].ToString() + "\n");
+                                    account_status.Text = "BANNED";
+                                    account_status.ForeColor = Color.Red;
+                                    banned = true;
+                                }
+                                else
+                                {
+                                    if ((string)responses["players"][0]["NumberOfGameBans"].ToString() != "0")
+                                    {
+                                        Console.WriteLine("[BAN] Game Banned\n   Returned: " + (string)responses["players"][0]["NumberOfGameBans"].ToString() + "\n");
+                                        account_status.Text = "BANNED";
+                                        account_status.ForeColor = Color.Red;
+                                        banned = true;
+                                    }
+                                    else
+                                    {
+                                        account_status.Text = "Unbanned";
+                                        account_status.ForeColor = Color.Green;
+                                    }
+                                }
+                                if (banned)
+                                {
+                                    Console.WriteLine("Listed banned account:\n   " + usernames[id] + ":" + passwords[id] + "\n");
+                                    bannedAccs += "\n   " + usernames[id] + ":" + passwords[id];
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Listed unbanned account:\n   " + usernames[id] + ":" + passwords[id] + "\n");
+                                    unbannedAccs += "\n   " + usernames[id] + ":" + passwords[id];
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception a)
+                    {
+                        var result = MessageBox.Show("Unexpected error caught\nDid you input the right API key?", "Incorrect API key");
+                        if (result == DialogResult.OK)
+                        {
+                            parent.ShowSettings();
+                            this.Close();
+                        }
+                    }
+                    Console.WriteLine("[Form] Reenabling next and back buttons, Logging off steam..." + "\n");
+                    account_back.BeginInvoke(new MethodInvoker(() =>
+                    {
+                        account_back.Enabled = true;
+                    }));
+                    account_next.BeginInvoke(new MethodInvoker(() =>
+                    {
+                        account_next.Enabled = true;
+                    }));
+                    steamUser.LogOff();
+                }
+            }catch(Exception a)
+            {
+                if(a.Message == "The remote server returned an error: (403) Forbidden.")
+                {
+                    Console.WriteLine(a.Message);
+                    var result = MessageBox.Show("Unexpected error caught\nDid you input the right API key?", "Incorrect API key");
+                    if (result == DialogResult.OK)
+                    {
+                        parent.ShowSettings();
+                        this.Close();
+                    }
                 }
                 else
                 {
-                    if (!importing)
-                    {
-                        if ((string)responses["players"][0]["VACBanned"].ToString() != "False")
-                        {
-                            Console.WriteLine("[BAN] VAC Banned\n   Returned: " + (string)responses["players"][0]["VACBanned"].ToString() + "\n");
-                            account_status.Text = "BANNED";
-                            account_status.ForeColor = Color.Red;
-                        }
-                        else
-                        {
-                            if ((string)responses["players"][0]["NumberOfGameBans"].ToString() != "0")
-                            {
-                                Console.WriteLine("[BAN] Game Banned\n   Returned: " + (string)responses["players"][0]["NumberOfGameBans"].ToString() + "\n");
-                                account_status.Text = "BANNED";
-                                account_status.ForeColor = Color.Red;
-                            }
-                            else
-                            {
-                                account_status.Text = "Unbanned";
-                                account_status.ForeColor = Color.Green;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var banned = false;
-                        if ((string)responses["players"][0]["VACBanned"].ToString() != "False")
-                        {
-                            Console.WriteLine("[BAN] VAC Banned\n   Returned: " + (string)responses["players"][0]["VACBanned"].ToString() + "\n");
-                            account_status.Text = "BANNED";
-                            account_status.ForeColor = Color.Red;
-                            banned = true;
-                        }
-                        else
-                        {
-                            if ((string)responses["players"][0]["NumberOfGameBans"].ToString() != "0")
-                            {
-                                Console.WriteLine("[BAN] Game Banned\n   Returned: " + (string)responses["players"][0]["NumberOfGameBans"].ToString() + "\n");
-                                account_status.Text = "BANNED";
-                                account_status.ForeColor = Color.Red;
-                                banned = true;
-                            }
-                            else
-                            {
-                                account_status.Text = "Unbanned";
-                                account_status.ForeColor = Color.Green;
-                            }
-                        }
-                        if (banned)
-                        {
-                            Console.WriteLine("Listed banned account:\n   " + usernames[id] + ":" + passwords[id] + "\n");
-                            bannedAccs += "\n   " + usernames[id] + ":" + passwords[id];
-                        }
-                        else
-                        {
-                            Console.WriteLine("Listed unbanned account:\n   " + usernames[id] + ":" + passwords[id] + "\n");
-                            unbannedAccs += "\n   " + usernames[id] + ":" + passwords[id];
-                        }
-                    }
+                    Console.WriteLine("Error Caught, Please open a issue on github!\n" + a.Message);
+                    MessageBox.Show(a.Message, "Error Caught");
                 }
-                Console.WriteLine("[Form] Reenabling next and back buttons, Logging off steam..." + "\n");
-                account_back.BeginInvoke(new MethodInvoker(() =>
-                {
-                    account_back.Enabled = true;
-                }));
-                account_next.BeginInvoke(new MethodInvoker(() =>
-                {
-                    account_next.Enabled = true;
-                }));
-                steamUser.LogOff();
             }
         }
 
